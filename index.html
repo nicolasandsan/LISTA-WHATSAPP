@@ -32,6 +32,7 @@ h1{margin:0 0 4px;font-size:1.5rem;line-height:1.25;color:var(--navy);font-weigh
 .progress{flex:1 1 120px;height:8px;border-radius:99px;background:var(--line);overflow:hidden;min-width:100px}
 .progress i{display:block;height:100%;width:0;background:var(--wa);transition:width .25s}
 .tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0}
+select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font:inherit}
 input[type=search]{flex:1 1 200px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font:inherit}
 label.chk{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:.95rem;cursor:pointer}
 details{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:14px 0}
@@ -110,6 +111,12 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--wa)}
       <label class="chk"><input type="checkbox" id="hide"> Ocultar já feitos</label>
       <button class="ghost" id="clear" type="button">Limpar marcações</button>
       <button class="ghost" id="swap" type="button">Trocar lista</button>
+      <label class="chk">Abrir em
+        <select id="mode" aria-label="Como abrir o WhatsApp">
+          <option value="api">WhatsApp (padrão)</option>
+          <option value="web">WhatsApp Web direto</option>
+        </select>
+      </label>
     </div>
 
     <ul class="list" id="list"></ul>
@@ -207,7 +214,11 @@ $('file').addEventListener('change', async (ev) => {
 $('swap').onclick = () => { if (confirm('Trocar a lista? As marcações de "feito" serão apagadas.')){ ROWS = []; done = {}; drop(K_ROWS); drop(K_DONE); show(); } };
 
 /* ---------- lista ---------- */
-function waUrl(num){ return 'https://wa.me/55' + num + '?text=' + encodeURIComponent(msgEl.value); }
+function waUrl(num){
+  const t = encodeURIComponent(msgEl.value);
+  if ($('mode').value === 'web') return 'https://web.whatsapp.com/send?phone=55' + num + '&text=' + t;
+  return 'https://api.whatsapp.com/send?phone=55' + num + '&text=' + t;
+}
 
 function show(){
   const has = ROWS.length > 0;
@@ -282,6 +293,8 @@ function setDone(id, v){
 $('clear').onclick = () => {
   if (Object.keys(done).length && confirm('Limpar todas as marcações de "feito"?')){ done = {}; save(K_DONE, "{}"); render(); }
 };
+$('mode').value = load('a200_mode_v1', 'api') === 'web' ? 'web' : 'api';
+$('mode').addEventListener('change', () => save('a200_mode_v1', $('mode').value));
 q.addEventListener('input', render);
 hide.addEventListener('change', render);
 show();
