@@ -217,6 +217,7 @@ if (!Array.isArray(lists)){
   if (Array.isArray(old) && old.length) lists.push({ id: 'l0', name: 'Lista importada', rows: old, done: parseJSON(load(K_DONE, "{}"), {}) });
   save(K_LISTS, JSON.stringify(lists)); drop(K_ROWS); drop(K_DONE);
 }
+lists.forEach(l => l.rows.forEach(r => Object.assign(r, parsePhones(r.tel))));   // reaplica a regra de telefones às listas salvas
 function useList(id){
   current = lists.find(l => l.id === id) || lists[0] || null;
   ROWS = current ? current.rows : []; done = current ? current.done : {};
@@ -308,11 +309,13 @@ function parsePhones(tel){
   parts.forEach((p, i) => {
     let d = clean(p.replace(/\D/g,''));
     if (i > 0 && (d.length === 8 || d.length === 9)) d = ddd + d;
-    if (d.length === 11 && d[2] === '9' && !nums.includes(d)) nums.push(d);
+    const movel = d.length === 11 && d[2] === '9';
+    const fixo  = d.length === 10 && /[2-5]/.test(d[2]);      // fixo com WhatsApp Business
+    if ((movel || fixo) && !nums.includes(d)) nums.push(d);
   });
   if (nums.length) return { nums, status: 'ok' };
   const d = clean(parts[0].replace(/\D/g,''));
-  return { nums: [], status: (d.length === 10 && d[2] === '9') ? 'verificar' : 'fixo' };
+  return { nums: [], status: (d.length === 10 && /[6-9]/.test(d[2])) ? 'verificar' : 'invalido' };
 }
 
 function rowsFromWorkbook(wb){
@@ -398,7 +401,7 @@ function renderNext(nx){
   }
   const ey = document.createElement('div'); ey.className = 'eyebrow'; ey.textContent = 'Próximo da fila';
   const nm = document.createElement('div'); nm.className = 'nname'; nm.textContent = nx.nome;
-  const mt = document.createElement('div'); mt.className = 'nmeta'; mt.textContent = [nx.esp, nx.tel].filter(Boolean).join(' – ');
+  const mt = document.createElement('div'); mt.className = 'nmeta'; mt.textContent = [nx.esp, nx.tel].filter(Boolean).join(' – ') + (nx.nums[0].length === 10 ? ' · fixo' : '');
   const btns = document.createElement('div'); btns.className = 'qbtns';
   const go = document.createElement('a');
   go.className = 'go'; go.target = '_blank'; go.rel = 'noopener noreferrer';
@@ -408,7 +411,8 @@ function renderNext(nx){
   sk.onclick = () => { skipped.add(nx.id); render(); };
   btns.append(go, sk);
   const note = document.createElement('p'); note.className = 'qnote';
-  note.textContent = 'Com o WhatsApp aberto: anexe a imagem ou o arquivo (clipe), confira o texto e envie. Depois volte aqui e clique de novo.';
+  note.textContent = 'Com o WhatsApp aberto: anexe a imagem ou o arquivo (clipe), confira o texto e envie. Depois volte aqui e clique de novo.'
+    + (nx.nums[0].length === 10 ? ' Número fixo: se o WhatsApp avisar que o número não está no WhatsApp, use Pular.' : '');
   wrap.append(ey, nm, mt, btns, note);
   box.append(wrap);
 }
@@ -441,7 +445,7 @@ function render(){
 
     const who = document.createElement('div'); who.className = 'who';
     const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = r.nome;
-    const mt = document.createElement('div'); mt.className = 'meta'; mt.textContent = [r.esp, r.tel].filter(Boolean).join(' – ');
+    const mt = document.createElement('div'); mt.className = 'meta'; mt.textContent = [r.esp, r.tel].filter(Boolean).join(' – ') + (r.nums.length && r.nums[0].length === 10 ? ' · fixo' : '');
     who.append(nm, mt);
 
     const acts = document.createElement('div'); acts.className = 'acts';
@@ -457,7 +461,7 @@ function render(){
       const f = document.createElement('span');
       f.className = 'flag' + (r.status === 'verificar' ? '' : ' soft');
       f.textContent = r.status === 'verificar' ? 'Conferir número (só 8 dígitos)'
-                    : r.status === 'fixo' ? 'Telefone fixo – sem WhatsApp'
+                    : r.status === 'invalido' ? 'Número inválido – conferir'
                     : 'Sem telefone na lista';
       acts.append(f);
     }
